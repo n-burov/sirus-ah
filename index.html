@@ -599,42 +599,29 @@
                 
                 const data = await response.json();
                 
-                // Извлекаем данные об аукционе
-                if (data.auctionhouse) {
-                    const auctionData = data.auctionhouse;
-                    
-                    return {
-                        id: itemId,
-                        name: data.name || data.title || `Предмет #${itemId}`,
-                        price: auctionData.avg || 0,
-                        quantity: auctionData.count || 0,
-                        avgPrice: auctionData.avg || 0,
-                        trend: auctionData.state || '=',
-                        old: auctionData.old || false,
-                        link: `https://sirus.su/base/item/${itemId}`
-                    };
-                }
+                // Извлекаем данные
+                const itemName = data.item?.name || data.tooltip?.name || `Предмет #${itemId}`;
+                const itemColor = data.item?.color || data.tooltip?.color || 'ffffff';
+                const auctionData = data.auctionhouse || {};
                 
-                // Рекурсивный поиск, если auctionhouse не на верхнем уровне
-                const found = findAuctionData(data);
-                if (found) {
-                    return {
-                        id: itemId,
-                        name: found.name || `Предмет #${itemId}`,
-                        price: found.auctionhouse.avg || 0,
-                        quantity: found.auctionhouse.count || 0,
-                        avgPrice: found.auctionhouse.avg || 0,
-                        trend: found.auctionhouse.state || '=',
-                        old: found.auctionhouse.old || false,
-                        link: `https://sirus.su/base/item/${itemId}`
-                    };
-                }
+                return {
+                    id: itemId,
+                    name: itemName,
+                    color: itemColor,
+                    price: auctionData.avg || 0,
+                    quantity: auctionData.count || 0,
+                    avgPrice: auctionData.avg || 0,
+                    trend: auctionData.state || '=',
+                    old: auctionData.old || false,
+                    icon: data.item?.icon || data.tooltip?.icon || '',
+                    quality: data.item?.quality || 0,
+                    link: `https://sirus.su/base/item/${itemId}`
+                };
                 
             } catch (error) {
                 console.error(`Ошибка API для предмета ${itemId}:`, error);
+                return null;
             }
-            
-            return null;
         }
 
         function findAuctionData(obj, depth = 0) {
