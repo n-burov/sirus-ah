@@ -515,13 +515,15 @@
                     if (itemData && itemData.name) {
                         auctionData.push(itemData);
                         successCount++;
-                        showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)}`);
+                        showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)} (${itemData.quantity} шт.)`);
+                    } else {
+                        console.warn(`Нет данных для предмета ${itemId}`);
                     }
                 } catch (error) {
                     console.error(`Ошибка для предмета ${itemId}:`, error);
                 }
                 
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
             
             isParsing = false;
@@ -540,88 +542,72 @@
 
         async function fetchItemData(itemId) {
             try {
-                // Пробуем POST запрос к API
-                const response = await fetch('https://sirus.su/api/v2/data', {
-                    method: 'POST',
+                // Используем правильный API endpoint
+                const apiUrl = `https://sirus.su/api/base/22/details/item/${itemId}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({
-                        itemId: itemId,
-                        id: itemId
-                    })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const itemData = extractFromResponse(data, itemId);
-                    if (itemData) return itemData;
-                }
-                
-                // Пробуем GET запрос
-                const getResponse = await fetch(`https://sirus.su/api/v2/data?itemId=${itemId}`, {
-                    headers: {
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     }
                 });
                 
-                if (getResponse.ok) {
-                    const data = await getResponse.json();
-                    const itemData = extractFromResponse(data, itemId);
-                    if (itemData) return itemData;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Извлекаем данные
+                const itemData = extractItemData(data, itemId);
+                
+                if (itemData && itemData.price > 0) {
+                    return itemData;
+                }
+                
+                // Если не нашли, пробуем рекурсивно
+                const foundData = findAuctionData(data);
+                if (foundData) {
+                    return {
+                        id: itemId,
+                        name: foundData.name || `Предмет #${itemId}`,
+                        price: foundData.avg || foundData.price || 0,
+                        quantity: foundData.count || foundData.quantity || 0,
+                        avgPrice: foundData.avg || 0,
+                        link: `https://sirus.su/base/item/${itemId}`
+                    };
                 }
                 
             } catch (error) {
-                console.warn('Ошибка API запроса:', error);
-            }
-            
-            // Запасной вариант - парсим HTML
-            return await fetchItemFromHTML(itemId);
-        }
-
-        async function fetchItemFromHTML(itemId) {
-            try {
-                const response = await fetch(`https://sirus.su/base/item/${itemId}`);
-                if (!response.ok) return null;
-                
-                const html = await response.text();
-                
-                // Ищем данные в Nuxt
-                const nuxtMatch = html.match(/<script type="application\/json" data-nuxt-data="nuxt-app"[^>]*>(.*?)<\/script>/);
-                if (nuxtMatch) {
-                    const data = JSON.parse(nuxtMatch[1]);
-                    const itemData = extractFromResponse(data, itemId);
-                    if (itemData) return itemData;
-                }
-                
-                // Ищем window.__NUXT__
-                const nuxtConfig = html.match(/window\.__NUXT__\s*=\s*({.*?});/);
-                if (nuxtConfig) {
-                    const data = JSON.parse(nuxtConfig[1]);
-                    const itemData = extractFromResponse(data, itemId);
-                    if (itemData) return itemData;
-                }
-                
-            } catch (error) {
-                console.error('Ошибка парсинга HTML:', error);
+                console.error(`Ошибка API для предмета ${itemId}:`, error);
             }
             
             return null;
         }
 
-        function extractFromResponse(data, itemId) {
-            // Рекурсивно ищем данные о предмете
-            const found = findItemInData(data, itemId);
-            
-            if (found) {
+        function extractItemData(data, itemId) {
+            // Проверяем, есть ли auctionhouse в ответе
+            if (data.auctionhouse) {
                 return {
                     id: itemId,
-                    name: found.name || found.title || found.itemName || `Предмет #${itemId}`,
-                    price: extractPrice(found),
-                    quantity: found.quantity || found.count || found.amount || 0,
-                    avgPrice: found.avgPrice || found.marketPrice || 0,
+                    name: data.name || data.title || `Предмет #${itemId}`,
+                    price: data.auctionhouse.avg || 0,
+                    quantity: data.auctionhouse.count || 0,
+                    avgPrice: data.auctionhouse.avg || 0,
+                    link: `https://sirus.su/base/item/${itemId}`
+                };
+            }
+            
+            // Проверяем другие поля
+            if (data.item) {
+                const item = data.item;
+                return {
+                    id: itemId,
+                    name: item.name || item.title || `Предмет #${itemId}`,
+                    price: item.auctionhouse?.avg || item.price || 0,
+                    quantity: item.auctionhouse?.count || item.quantity || 0,
+                    avgPrice: item.auctionhouse?.avg || item.avgPrice || 0,
                     link: `https://sirus.su/base/item/${itemId}`
                 };
             }
@@ -629,52 +615,34 @@
             return null;
         }
 
-        function findItemInData(obj, itemId, depth = 0) {
+        function findAuctionData(obj, depth = 0) {
             if (depth > 10 || !obj || typeof obj !== 'object') return null;
             
-            // Проверяем наличие ID
-            if (obj.id === itemId || obj.itemId === itemId || obj.entry === itemId) {
-                return obj;
+            // Проверяем наличие auctionhouse
+            if (obj.auctionhouse) {
+                return {
+                    name: obj.name || obj.title || '',
+                    avg: obj.auctionhouse.avg || 0,
+                    count: obj.auctionhouse.count || 0
+                };
             }
             
             // Рекурсивно проверяем
             if (Array.isArray(obj)) {
                 for (const item of obj) {
-                    const result = findItemInData(item, itemId, depth + 1);
+                    const result = findAuctionData(item, depth + 1);
                     if (result) return result;
                 }
             } else {
                 for (const key in obj) {
                     if (obj.hasOwnProperty(key)) {
-                        const result = findItemInData(obj[key], itemId, depth + 1);
+                        const result = findAuctionData(obj[key], depth + 1);
                         if (result) return result;
                     }
                 }
             }
             
             return null;
-        }
-
-        function extractPrice(data) {
-            if (data.price) return parseInt(data.price);
-            if (data.buyout) return parseInt(data.buyout);
-            if (data.bid) return parseInt(data.bid);
-            
-            if (data.money) {
-                const gold = data.money.gold || 0;
-                const silver = data.money.silver || 0;
-                const copper = data.money.copper || 0;
-                return (gold * 10000) + (silver * 100) + copper;
-            }
-            
-            if (data.gold || data.silver || data.copper) {
-                const gold = data.gold || 0;
-                const silver = data.silver || 0;
-                const copper = data.copper || 0;
-                return (gold * 10000) + (silver * 100) + copper;
-            }
-            
-            return 0;
         }
 
         function formatMoney(copper) {
@@ -794,8 +762,8 @@
 
         function loadSampleData() {
             const sampleItems = [
-                { name: 'Лотос скверны', price: 8663250, quantity: 20, avgPrice: 10000000 },
-                { name: 'Ткань Пустоты', price: 8000000, quantity: 5, avgPrice: 12000000 }
+                { name: 'Лотос скверны', price: 8663250, quantity: 575, avgPrice: 8663250 },
+                { name: 'Ткань Пустоты', price: 8000000, quantity: 200, avgPrice: 8000000 }
             ];
             auctionData = sampleItems.map(normalizeItem);
             applyFilters();
@@ -893,7 +861,6 @@
             let html = '';
             for (let i = startIndex; i < endIndex; i++) {
                 const item = filteredData[i];
-                const isProfitable = item.avgPrice > 0 && item.avgPrice > item.price;
                 
                 html += `
                     <tr>
@@ -901,8 +868,8 @@
                         <td>${formatMoney(item.price)}</td>
                         <td>${item.quantity}</td>
                         <td>
-                            <span class="badge ${isProfitable ? 'badge-profit' : 'badge-info'}">
-                                ${isProfitable ? 'Выгодно' : 'Обычная'}
+                            <span class="badge badge-info">
+                                ${item.quantity > 0 ? 'В наличии' : 'Нет'}
                             </span>
                         </td>
                         <td>
