@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sirus Auction Analyzer - Парсер аукциона</title>
+    <title>Sirus Auction Analyzer</title>
     <style>
         :root {
             --bg-primary: #0f0f1a;
@@ -170,7 +170,6 @@
         }
 
         .profit { color: var(--accent); }
-        .loss { color: var(--accent-danger); }
         .warning { color: var(--accent-warning); }
         .info { color: var(--accent-info); }
 
@@ -367,48 +366,18 @@
             font-size: 4rem;
             margin-bottom: 20px;
         }
-
-        .cors-notice {
-            background: rgba(251, 191, 36, 0.1);
-            border-left: 4px solid var(--accent-warning);
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .cors-notice code {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🔍 Sirus Auction Analyzer</h1>
-            <p class="subtitle">Парсер аукциона с сайта sirus.su для WoW 3.3.5</p>
-            <div class="cors-notice">
-                <strong>⚠️ Важно:</strong> Для работы парсера требуется CORS прокси. 
-                Если запросы не работают, используйте прокси из списка ниже или 
-                <a href="https://github.com/Rob--W/cors-anywhere" target="_blank" style="color: var(--accent-info);">установите свой</a>.
-            </div>
+            <p class="subtitle">Парсер аукциона с сайта sirus.su через API</p>
         </header>
 
         <!-- Секция парсера -->
         <div class="parser-section">
-            <h2 style="margin-bottom: 20px;">📡 Парсинг с сайта sirus.su</h2>
-            
-            <div class="input-group" style="margin-bottom: 15px;">
-                <label>CORS Прокси (если не работает, попробуйте другой)</label>
-                <select id="proxySelect" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
-                    <option value="https://api.allorigins.win/raw?url=">AllOrigins</option>
-                    <option value="https://cors-anywhere.herokuapp.com/">CORS Anywhere</option>
-                    <option value="https://api.codetabs.com/v1/proxy?quest=">CodeTabs</option>
-                    <option value="https://corsproxy.io/?">CORS Proxy</option>
-                </select>
-            </div>
+            <h2 style="margin-bottom: 20px;">📡 Парсинг через API sirus.su</h2>
             
             <div class="parser-controls">
                 <div class="input-group">
@@ -575,7 +544,7 @@
             reader.readAsText(file);
         }
 
-        // Парсинг с сайта
+        // Парсинг с сайта через API
         async function startParsing() {
             if (isParsing) return;
             
@@ -625,7 +594,7 @@
             updateTable();
             updateStats();
             
-            // Парсим каждый предмет
+            // Парсим каждый предмет через API
             let successCount = 0;
             for (let i = 0; i < itemIds.length; i++) {
                 if (!isParsing) break;
@@ -634,20 +603,20 @@
                 updateProgress(i, itemIds.length, `Парсинг предмета #${itemId}`);
                 
                 try {
-                    const itemData = await parseItemFromSirus(itemId);
+                    const itemData = await fetchItemFromAPI(itemId);
                     if (itemData && itemData.name) {
                         auctionData.push(itemData);
                         successCount++;
                         showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)}`);
                     } else {
-                        console.warn(`Не удалось распарсить предмет ${itemId}`);
+                        console.warn(`Не удалось получить данные для предмета ${itemId}`);
                     }
                 } catch (error) {
-                    console.error(`Ошибка парсинга предмета ${itemId}:`, error);
+                    console.error(`Ошибка получения данных для предмета ${itemId}:`, error);
                 }
                 
                 // Задержка между запросами
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
             
             isParsing = false;
@@ -655,7 +624,7 @@
             
             applyFilters();
             updateStats();
-            showToast(`Успешно распарсено ${successCount} из ${itemIds.length} предметов`);
+            showToast(`Успешно получено ${successCount} из ${itemIds.length} предметов`);
         }
 
         function stopParsing() {
@@ -664,88 +633,186 @@
             showToast('Парсинг остановлен');
         }
 
-        async function parseItemFromSirus(itemId) {
-            const proxy = document.getElementById('proxySelect').value;
-            const url = `${proxy}${encodeURIComponent(`https://sirus.su/base/item/${itemId}`)}`;
+        async function fetchItemFromAPI(itemId) {
+            // Пробуем разные API endpoints
+            const apiUrls = [
+                `https://sirus.su/api/v2/item/${itemId}`,
+                `https://sirus.su/api/item/${itemId}`,
+                `https://sirus.su/api/v1/item/${itemId}`,
+                `https://sirus.su/api/v2/items/${itemId}`,
+                `https://sirus.su/api/items/${itemId}`,
+                `https://sirus.su/api/v2/base/item/${itemId}`,
+                `https://sirus.su/api/base/item/${itemId}`
+            ];
             
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+            for (const apiUrl of apiUrls) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) continue;
+                    
+                    const data = await response.json();
+                    const itemData = extractItemDataFromAPI(data, itemId);
+                    
+                    if (itemData && itemData.name) {
+                        return itemData;
+                    }
+                } catch (error) {
+                    console.warn(`API ${apiUrl} не работает:`, error.message);
                 }
+            }
+            
+            // Если API не работает, пробуем получить данные через Nuxt data
+            return await fetchItemFromNuxtData(itemId);
+        }
+
+        async function fetchItemFromNuxtData(itemId) {
+            try {
+                const url = `https://sirus.su/base/item/${itemId}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) return null;
                 
                 const html = await response.text();
-                return extractItemDataFromHtml(html, itemId);
-            } catch (error) {
-                console.error(`Ошибка загрузки ${url}:`, error);
                 
-                // Пробуем альтернативный прокси
-                const altProxy = 'https://api.allorigins.win/raw?url=';
-                try {
-                    const altUrl = `${altProxy}${encodeURIComponent(`https://sirus.su/base/item/${itemId}/x3`)}`;
-                    const altResponse = await fetch(altUrl);
-                    if (altResponse.ok) {
-                        const altHtml = await altResponse.text();
-                        return extractItemDataFromHtml(altHtml, itemId);
+                // Ищем данные в Nuxt payload
+                const nuxtDataMatch = html.match(/<script type="application\/json" data-nuxt-data="nuxt-app" data-ssr="false" id="__NUXT_DATA__">(.*?)<\/script>/);
+                
+                if (nuxtDataMatch) {
+                    try {
+                        const jsonData = JSON.parse(nuxtDataMatch[1]);
+                        const itemData = extractItemDataFromNuxt(jsonData, itemId);
+                        
+                        if (itemData && itemData.name) {
+                            return itemData;
+                        }
+                    } catch (e) {
+                        console.warn('Ошибка парсинга Nuxt data:', e);
                     }
-                } catch (altError) {
-                    console.error(`Ошибка загрузки альтернативного URL:`, altError);
+                }
+                
+                // Ищем данные в window.__NUXT__
+                const nuxtConfigMatch = html.match(/window\.__NUXT__\s*=\s*({.*?});/);
+                
+                if (nuxtConfigMatch) {
+                    try {
+                        const nuxtConfig = JSON.parse(nuxtConfigMatch[1]);
+                        const itemData = extractItemDataFromNuxt(nuxtConfig, itemId);
+                        
+                        if (itemData && itemData.name) {
+                            return itemData;
+                        }
+                    } catch (e) {
+                        console.warn('Ошибка парсинга Nuxt config:', e);
+                    }
+                }
+            } catch (error) {
+                console.error(`Ошибка загрузки страницы предмета ${itemId}:`, error);
+            }
+            
+            return null;
+        }
+
+        function extractItemDataFromAPI(data, itemId) {
+            // Рекурсивно ищем данные о предмете
+            const itemData = findItemData(data);
+            
+            if (itemData && itemData.name) {
+                return {
+                    id: itemId,
+                    name: itemData.name || itemData.title || `Предмет #${itemId}`,
+                    price: extractPrice(itemData),
+                    quantity: itemData.quantity || itemData.count || itemData.amount || 0,
+                    avgPrice: extractAvgPrice(itemData),
+                    link: `https://sirus.su/base/item/${itemId}`
+                };
+            }
+            
+            return null;
+        }
+
+        function extractItemDataFromNuxt(data, itemId) {
+            // Рекурсивно ищем данные о предмете
+            const itemData = findItemData(data);
+            
+            if (itemData && (itemData.name || itemData.title)) {
+                return {
+                    id: itemId,
+                    name: itemData.name || itemData.title || `Предмет #${itemId}`,
+                    price: extractPrice(itemData),
+                    quantity: itemData.quantity || itemData.count || itemData.amount || 0,
+                    avgPrice: extractAvgPrice(itemData),
+                    link: `https://sirus.su/base/item/${itemId}`
+                };
+            }
+            
+            return null;
+        }
+
+        function findItemData(obj, depth = 0) {
+            if (depth > 10 || !obj || typeof obj !== 'object') return null;
+            
+            // Проверяем текущий объект
+            if (obj.name || obj.title) {
+                if (obj.price || obj.buyout || obj.quantity || obj.amount) {
+                    return obj;
+                }
+            }
+            
+            // Рекурсивно проверяем вложенные объекты
+            if (Array.isArray(obj)) {
+                for (const item of obj) {
+                    const result = findItemData(item, depth + 1);
+                    if (result) return result;
+                }
+            } else {
+                for (const key in obj) {
+                    if (obj.hasOwnProperty(key)) {
+                        const result = findItemData(obj[key], depth + 1);
+                        if (result) return result;
+                    }
                 }
             }
             
             return null;
         }
 
-        function extractItemDataFromHtml(html, itemId) {
-            const item = {
-                id: itemId,
-                name: '',
-                price: 0,
-                quantity: 0,
-                avgPrice: 0,
-                link: `https://sirus.su/base/item/${itemId}`
-            };
+        function extractPrice(data) {
+            // Ищем цену в разных форматах
+            if (data.price) return parseInt(data.price);
+            if (data.buyout) return parseInt(data.buyout);
+            if (data.bid) return parseInt(data.bid);
             
-            // Извлекаем название предмета
-            const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-            if (titleMatch) {
-                item.name = titleMatch[1].trim();
-            } else {
-                const pageTitle = html.match(/<title>([^<]+)<\/title>/);
-                if (pageTitle) {
-                    item.name = pageTitle[1].replace(/[-–].*$/, '').trim();
-                }
+            // Ищем в формате money: { gold, silver, copper }
+            if (data.money) {
+                const gold = data.money.gold || 0;
+                const silver = data.money.silver || 0;
+                const copper = data.money.copper || 0;
+                return (gold * 10000) + (silver * 100) + copper;
             }
             
-            // Извлекаем цену из структуры moneygold, moneysilver, moneycopper
-            const goldMatch = html.match(/<span class="moneygold">(\d+)<\/span>/);
-            const silverMatch = html.match(/<span class="moneysilver">(\d+)<\/span>/);
-            const copperMatch = html.match(/<span class="moneycopper">(\d+)<\/span>/);
-            
-            if (goldMatch || silverMatch || copperMatch) {
-                const gold = goldMatch ? parseInt(goldMatch[1]) : 0;
-                const silver = silverMatch ? parseInt(silverMatch[1]) : 0;
-                const copper = copperMatch ? parseInt(copperMatch[1]) : 0;
-                
-                item.price = (gold * 10000) + (silver * 100) + copper;
+            // Ищем в формате gold, silver, copper
+            if (data.gold || data.silver || data.copper) {
+                const gold = data.gold || 0;
+                const silver = data.silver || 0;
+                const copper = data.copper || 0;
+                return (gold * 10000) + (silver * 100) + copper;
             }
             
-            // Извлекаем количество с аукциона
-            const quantityPatterns = [
-                /на аукционе[^<]*<[^>]*>(\d+)</i,
-                /кол-во[^<]*<[^>]*>(\d+)</i,
-                /количество[^<]*<[^>]*>(\d+)</i
-            ];
+            return 0;
+        }
+
+        function extractAvgPrice(data) {
+            if (data.avgPrice) return parseInt(data.avgPrice);
+            if (data.averagePrice) return parseInt(data.averagePrice);
+            if (data.marketPrice) return parseInt(data.marketPrice);
             
-            for (const pattern of quantityPatterns) {
-                const match = html.match(pattern);
-                if (match) {
-                    item.quantity = parseInt(match[1]);
-                    break;
-                }
-            }
-            
-            return item;
+            return 0;
         }
 
         function formatMoney(copper) {
@@ -1065,7 +1132,7 @@
         function exportAnalysis() {
             const analysis = {
                 timestamp: new Date().toISOString(),
-                source: 'sirus.su parser',
+                source: 'sirus.su API parser',
                 totalItems: auctionData.length,
                 items: auctionData.map(item => ({
                     name: item.name,
