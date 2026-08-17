@@ -1,0 +1,11 @@
+{
+  "name": "sirus-auction-analyzer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'No build step'"
+  },
+  "dependencies": {
+    "@vercel/kv": "^1.0.0"
+  }
+}
