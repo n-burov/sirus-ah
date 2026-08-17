@@ -110,8 +110,8 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        .btn-danger {
-            background: var(--accent-danger);
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             border: none;
         }
@@ -119,6 +119,12 @@
         .btn-success {
             background: var(--accent);
             color: #000;
+            border: none;
+        }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            color: #fff;
             border: none;
         }
 
@@ -252,34 +258,10 @@
             width: 32px;
             height: 32px;
             border-radius: 4px;
-            flex-shrink: 0;
         }
 
         .item-name {
             font-weight: 600;
-        }
-
-        .item-placeholder {
-            color: var(--text-secondary);
-            font-style: italic;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .status-loaded {
-            background: rgba(74, 222, 128, 0.2);
-            color: var(--accent);
-        }
-
-        .status-loading {
-            background: rgba(251, 191, 36, 0.2);
-            color: var(--accent-warning);
         }
 
         .empty-state {
@@ -325,6 +307,26 @@
             align-items: center;
         }
 
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent-info);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .error-message {
             color: var(--accent-danger);
             padding: 10px;
@@ -366,7 +368,7 @@
             </div>
             
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                <button class="btn btn-danger" onclick="clearData()">🗑️ Очистить все</button>
+                <button class="btn btn-danger" onclick="clearData()">🗑️ Очистить</button>
                 <button class="btn btn-success" onclick="exportData()">💾 Экспорт</button>
             </div>
         </div>
@@ -378,12 +380,8 @@
                 <div class="stat-value" id="totalItems">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Загружено</div>
-                <div class="stat-value" id="loadedItems">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Осталось</div>
-                <div class="stat-value" id="remainingItems">0</div>
+                <div class="stat-label">С информацией</div>
+                <div class="stat-value" id="itemsWithInfo">0</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Средняя цена</div>
@@ -444,61 +442,20 @@
         let auctionData = [];
         let filteredData = [];
         let currentPage = 1;
-        const itemsPerPage = 100;
+        const itemsPerPage = 50;
         let currentSort = { column: 'price', direction: 'asc' };
         let itemInfoCache = {};
-        let loadQueue = [];
-        let activeLoads = 0;
-        const maxConcurrentLoads = 5; // Увеличим до 5 параллельных загрузок
 
-        // Загружаем кэш
-        function loadCache() {
-            try {
-                const cached = localStorage.getItem('sirusItemCache');
-                if (cached) {
-                    itemInfoCache = JSON.parse(cached);
-                    console.log('Кэш загружен:', Object.keys(itemInfoCache).length, 'предметов');
-                }
-            } catch (e) {
-                console.warn('Ошибка загрузки кэша:', e);
-            }
-        }
-
-        // Сохраняем кэш
-        function saveCache() {
-            try {
-                localStorage.setItem('sirusItemCache', JSON.stringify(itemInfoCache));
-                console.log('Кэш сохранен:', Object.keys(itemInfoCache).length, 'предметов');
-            } catch (e) {
-                console.warn('Ошибка сохранения кэша:', e);
-                if (e.name === 'QuotaExceededError') {
-                    const keys = Object.keys(itemInfoCache);
-                    if (keys.length > 10000) {
-                        const newCache = {};
-                        keys.slice(-10000).forEach(key => {
-                            newCache[key] = itemInfoCache[key];
-                        });
-                        itemInfoCache = newCache;
-                        try {
-                            localStorage.setItem('sirusItemCache', JSON.stringify(itemInfoCache));
-                        } catch (e2) {
-                            console.error('Не удалось сохранить кэш:', e2);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Инициализация
+        // Инициализация обработчиков
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM загружен');
-            loadCache();
             
+            // Обработчик загрузки файла
             const fileInput = document.getElementById('fileInput');
             const uploadArea = document.getElementById('uploadArea');
             
             fileInput.addEventListener('change', function(event) {
-                console.log('Файл выбран:', event.target.files[0]);
+                console.log('Файл выбран');
                 const file = event.target.files[0];
                 if (file) {
                     processFile(file);
@@ -506,6 +463,7 @@
             });
             
             uploadArea.addEventListener('click', function() {
+                console.log('Клик по области загрузки');
                 fileInput.click();
             });
             
@@ -527,6 +485,7 @@
                 }
             });
             
+            // Обработчики фильтров
             document.getElementById('searchInput').addEventListener('input', applyFilters);
             document.getElementById('minPrice').addEventListener('input', applyFilters);
             document.getElementById('maxPrice').addEventListener('input', applyFilters);
@@ -558,173 +517,124 @@
         function parseAuctionatorData(content) {
             console.log('Парсинг данных, размер:', content.length);
             
+            // Показываем прогресс
             document.getElementById('progressContainer').style.display = 'block';
             document.getElementById('progressFill').style.width = '10%';
             document.getElementById('progressText').textContent = 'Парсинг файла...';
             
+            // Извлекаем данные из Lua файла
             const items = [];
+            
+            // Паттерн: [ID] = { m = цена, ... }
             const pattern = /\[(\d+)\]\s*=\s*\{[^}]*?m\s*=\s*(\d+)/g;
             let match;
             
             while ((match = pattern.exec(content)) !== null) {
                 const itemID = parseInt(match[1]);
                 const price = parseInt(match[2]);
-                const cachedInfo = itemInfoCache[itemID];
                 
                 items.push({
                     id: itemID,
                     price: price,
-                    name: cachedInfo ? cachedInfo.name : null,
-                    icon: cachedInfo ? cachedInfo.icon : null,
-                    color: cachedInfo ? cachedInfo.color : null,
-                    quality: cachedInfo ? cachedInfo.quality : null,
-                    isLoading: false
+                    name: null,
+                    icon: null,
+                    color: null,
+                    quality: null
                 });
             }
             
-            console.log('Найдено предметов через паттерн m:', items.length);
+            console.log('Найдено предметов:', items.length);
             
             if (items.length === 0) {
+                // Пробуем альтернативный паттерн
                 const altPattern = /\[(\d+)\]\s*=\s*(\d+)/g;
                 while ((match = altPattern.exec(content)) !== null) {
-                    const itemID = parseInt(match[1]);
-                    const price = parseInt(match[2]);
-                    const cachedInfo = itemInfoCache[itemID];
-                    
                     items.push({
-                        id: itemID,
-                        price: price,
-                        name: cachedInfo ? cachedInfo.name : null,
-                        icon: cachedInfo ? cachedInfo.icon : null,
-                        color: cachedInfo ? cachedInfo.color : null,
-                        quality: cachedInfo ? cachedInfo.quality : null,
-                        isLoading: false
+                        id: parseInt(match[1]),
+                        price: parseInt(match[2]),
+                        name: null,
+                        icon: null,
+                        color: null,
+                        quality: null
                     });
                 }
-                console.log('Найдено предметов через альтернативный паттерн:', items.length);
+                console.log('Найдено через альтернативный паттерн:', items.length);
             }
             
             auctionData = items;
             
             if (items.length === 0) {
-                showError('Не удалось найти данные в файле');
+                showError('Не удалось найти данные в файле. Убедитесь, что это Auctionator.lua');
                 document.getElementById('progressContainer').style.display = 'none';
                 return;
             }
             
-            // Показываем UI
+            document.getElementById('progressFill').style.width = '50%';
+            document.getElementById('progressText').textContent = `Найдено ${items.length} предметов. Загружаем информацию...`;
+            
+            // Показываем таблицу сразу с данными
             document.getElementById('statsGrid').style.display = 'grid';
             document.getElementById('filtersSection').style.display = 'grid';
             document.getElementById('tableContainer').style.display = 'block';
             document.getElementById('pagination').style.display = 'flex';
             
-            // Создаем очередь загрузки
-            loadQueue = items.filter(item => !item.name);
-            
-            console.log('Очередь загрузки:', loadQueue.length, 'предметов');
-            
-            document.getElementById('progressFill').style.width = '50%';
-            document.getElementById('progressText').textContent = 
-                `Найдено: ${items.length}, нужно загрузить: ${loadQueue.length}`;
-            
             applyFilters();
             updateStats();
             
-            if (loadQueue.length > 0) {
-                console.log('Запускаем очередь загрузки');
-                startLoadingQueue();
-            } else {
-                console.log('Все данные из кэша');
-                document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('progressText').textContent = 'Все данные из кэша!';
-                setTimeout(() => {
-                    document.getElementById('progressContainer').style.display = 'none';
-                }, 1000);
-            }
+            // Загружаем информацию о предметах
+            loadItemInfo();
         }
 
-        function startLoadingQueue() {
-            console.log('Запуск очереди загрузки, активных:', activeLoads);
+        async function loadItemInfo() {
+            const totalItems = auctionData.length;
+            let processed = 0;
             
-            // Запускаем максимальное количество параллельных загрузок
-            for (let i = 0; i < maxConcurrentLoads; i++) {
-                processNextInQueue();
-            }
-        }
-
-        async function processNextInQueue() {
-            if (loadQueue.length === 0) {
-                activeLoads--;
-                console.log('Очередь пуста, активных:', activeLoads);
+            // Загружаем информацию пачками по 5 предметов
+            for (let i = 0; i < auctionData.length; i += 5) {
+                const batch = auctionData.slice(i, i + 5);
                 
-                if (activeLoads <= 0) {
-                    console.log('Загрузка завершена');
-                    document.getElementById('progressFill').style.width = '100%';
-                    document.getElementById('progressText').textContent = 'Готово!';
-                    saveCache();
+                await Promise.all(batch.map(async (item) => {
+                    try {
+                        const info = await fetchItemInfo(item.id);
+                        if (info) {
+                            item.name = info.name;
+                            item.icon = info.icon;
+                            item.color = info.color;
+                            item.quality = info.quality;
+                            itemInfoCache[item.id] = info;
+                        }
+                    } catch (error) {
+                        console.warn(`Не удалось получить информацию для ${item.id}:`, error);
+                    }
                     
-                    setTimeout(() => {
-                        document.getElementById('progressContainer').style.display = 'none';
-                    }, 1000);
-                    
-                    showToast('Все предметы загружены!');
-                }
-                return;
-            }
-            
-            const item = loadQueue.shift();
-            item.isLoading = true;
-            activeLoads++;
-            
-            console.log(`Загрузка предмета ${item.id}, осталось в очереди: ${loadQueue.length}`);
-            
-            // Обновляем таблицу для отображения статуса
-            updateTable();
-            updateStats();
-            
-            try {
-                const info = await fetchItemInfo(item.id);
-                
-                if (info) {
-                    item.name = info.name;
-                    item.icon = info.icon;
-                    item.color = info.color;
-                    item.quality = info.quality;
-                    itemInfoCache[item.id] = info;
-                    
-                    console.log(`Загружен предмет ${item.id}: ${info.name}`);
-                    
-                    // Обновляем таблицу
-                    updateTable();
-                    updateStats();
-                    
-                    // Обновляем прогресс
-                    const totalLoaded = auctionData.filter(i => i.name).length;
-                    const totalItems = auctionData.length;
-                    const progress = 50 + (totalLoaded / totalItems) * 50;
+                    processed++;
+                    const progress = 50 + (processed / totalItems) * 50;
                     document.getElementById('progressFill').style.width = `${progress}%`;
                     document.getElementById('progressText').textContent = 
-                        `Загружено: ${totalLoaded}/${totalItems}`;
-                    
-                    // Сохраняем кэш каждые 100 предметов
-                    if (totalLoaded % 100 === 0) {
-                        saveCache();
-                    }
-                } else {
-                    console.warn(`Не удалось получить данные для ${item.id}`);
-                }
-            } catch (error) {
-                console.error(`Ошибка для ${item.id}:`, error);
+                        `Загружено ${processed}/${totalItems} предметов...`;
+                }));
+                
+                // Обновляем таблицу после каждой пачки
+                applyFilters();
+                
+                // Небольшая задержка между пачками
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
             
-            item.isLoading = false;
-            activeLoads--;
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('progressText').textContent = 'Готово!';
             
-            // Запускаем следующую загрузку
-            processNextInQueue();
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+            }, 1000);
+            
+            applyFilters();
+            updateStats();
+            showToast(`Загружено ${totalItems} предметов`);
         }
 
         async function fetchItemInfo(itemId) {
+            // Проверяем кэш
             if (itemInfoCache[itemId]) {
                 return itemInfoCache[itemId];
             }
@@ -816,11 +726,8 @@
         function updateStats() {
             document.getElementById('totalItems').textContent = auctionData.length;
             
-            const loadedItems = auctionData.filter(item => item.name).length;
-            document.getElementById('loadedItems').textContent = loadedItems;
-            
-            const remainingItems = auctionData.length - loadedItems;
-            document.getElementById('remainingItems').textContent = remainingItems;
+            const itemsWithInfo = auctionData.filter(item => item.name).length;
+            document.getElementById('itemsWithInfo').textContent = itemsWithInfo;
             
             const prices = auctionData.map(item => item.price).filter(p => p > 0);
             const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
@@ -852,35 +759,21 @@
                 const item = filteredData[i];
                 const colorHex = item.color ? `#${item.color}` : '#ffffff';
                 
-                let nameDisplay;
-                if (item.name) {
-                    nameDisplay = `<span class="item-name" style="color: ${colorHex}">${item.name}</span>`;
-                } else if (item.isLoading) {
-                    nameDisplay = `<span class="item-name item-placeholder">Загрузка...</span>`;
-                } else {
-                    nameDisplay = `<span class="item-name item-placeholder">Предмет #${item.id}</span>`;
-                }
-                
-                let statusBadge;
-                if (item.name) {
-                    statusBadge = `<span class="status-badge status-loaded">✅</span>`;
-                } else if (item.isLoading) {
-                    statusBadge = `<span class="status-badge status-loading">⏳</span>`;
-                } else {
-                    statusBadge = `<span class="status-badge status-loading">❓</span>`;
-                }
-                
                 html += `
                     <tr>
                         <td>
                             <div class="item-cell">
                                 ${item.icon ? `<img src="${item.icon}" class="item-icon" alt="">` : ''}
-                                ${nameDisplay}
+                                <span class="item-name" style="color: ${colorHex}">
+                                    ${item.name || `Предмет #${item.id}`}
+                                </span>
                             </div>
                         </td>
                         <td>${item.id}</td>
                         <td>${formatMoney(item.price)}</td>
-                        <td>${statusBadge}</td>
+                        <td>
+                            ${item.name ? '✅' : '⏳'}
+                        </td>
                     </tr>
                 `;
             }
@@ -904,12 +797,11 @@
             auctionData = [];
             filteredData = [];
             itemInfoCache = {};
-            localStorage.removeItem('sirusItemCache');
             document.getElementById('statsGrid').style.display = 'none';
             document.getElementById('filtersSection').style.display = 'none';
             document.getElementById('tableContainer').style.display = 'none';
             document.getElementById('pagination').style.display = 'none';
-            showToast('Данные и кэш очищены');
+            showToast('Данные очищены');
         }
 
         function exportData() {
