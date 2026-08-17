@@ -16,6 +16,9 @@
             --accent-warning: #fbbf24;
             --accent-info: #60a5fa;
             --border: #2a2a3e;
+            --trend-up: #4ade80;
+            --trend-down: #f87171;
+            --trend-stable: #a0a0a0;
         }
 
         * {
@@ -129,7 +132,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -155,6 +158,9 @@
         .profit { color: var(--accent); }
         .warning { color: var(--accent-warning); }
         .info { color: var(--accent-info); }
+        .trend-up { color: var(--trend-up); }
+        .trend-down { color: var(--trend-down); }
+        .trend-stable { color: var(--trend-stable); }
 
         .table-container {
             background: var(--bg-secondary);
@@ -180,6 +186,10 @@
             position: sticky;
             top: 0;
             z-index: 10;
+        }
+
+        th:hover {
+            color: var(--text-primary);
         }
 
         td {
@@ -208,6 +218,23 @@
         .badge-info {
             background: rgba(96, 165, 250, 0.2);
             color: var(--accent-info);
+        }
+
+        .trend-indicator {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .trend-up-arrow {
+            color: var(--trend-up);
+        }
+
+        .trend-down-arrow {
+            color: var(--trend-down);
+        }
+
+        .trend-stable-dash {
+            color: var(--trend-stable);
         }
 
         .loading {
@@ -391,12 +418,16 @@
                 <div class="stat-value" id="avgPrice">0g</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Мин. цена</div>
-                <div class="stat-value warning" id="minPriceStat">0g</div>
+                <div class="stat-label">Растут</div>
+                <div class="stat-value trend-up" id="trendingUp">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Макс. цена</div>
-                <div class="stat-value info" id="maxPriceStat">0g</div>
+                <div class="stat-label">Падают</div>
+                <div class="stat-value trend-down" id="trendingDown">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Стабильны</div>
+                <div class="stat-value trend-stable" id="trendingStable">0</div>
             </div>
         </div>
 
@@ -404,7 +435,7 @@
         <div class="filters">
             <div class="filter-group">
                 <label>Поиск</label>
-                <input type="text" id="searchInput" placeholder="Название предмета...">
+                <input type="text" id="searchInput" placeholder="Название или ID...">
             </div>
             <div class="filter-group">
                 <label>Мин. цена (медь)</label>
@@ -413,6 +444,15 @@
             <div class="filter-group">
                 <label>Макс. цена (медь)</label>
                 <input type="number" id="maxPrice" placeholder="∞">
+            </div>
+            <div class="filter-group">
+                <label>Тренд</label>
+                <select id="trendFilter">
+                    <option value="all">Все</option>
+                    <option value=">">Растущие</option>
+                    <option value="<">Падающие</option>
+                    <option value="=">Стабильные</option>
+                </select>
             </div>
             <div class="filter-group">
                 <label>Сортировка</label>
@@ -432,7 +472,7 @@
                         <th onclick="sortTable('name')">Предмет</th>
                         <th onclick="sortTable('price')">Цена</th>
                         <th onclick="sortTable('quantity')">Кол-во</th>
-                        <th>Статус</th>
+                        <th>Тренд</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
@@ -512,10 +552,11 @@
                 
                 try {
                     const itemData = await fetchItemData(itemId);
-                    if (itemData && itemData.name) {
+                    if (itemData) {
                         auctionData.push(itemData);
                         successCount++;
-                        showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)} (${itemData.quantity} шт.)`);
+                        const trendSymbol = itemData.trend === '>' ? '▲' : itemData.trend === '<' ? '▼' : '=';
+                        showToast(`✓ #${itemId}: ${formatMoney(itemData.price)} ${trendSymbol} (${itemData.quantity} шт.)`);
                     } else {
                         console.warn(`Нет данных для предмета ${itemId}`);
                     }
@@ -542,7 +583,6 @@
 
         async function fetchItemData(itemId) {
             try {
-                // Используем правильный API endpoint
                 const apiUrl = `https://sirus.su/api/base/22/details/item/${itemId}`;
                 
                 const response = await fetch(apiUrl, {
@@ -559,22 +599,33 @@
                 
                 const data = await response.json();
                 
-                // Извлекаем данные
-                const itemData = extractItemData(data, itemId);
-                
-                if (itemData && itemData.price > 0) {
-                    return itemData;
-                }
-                
-                // Если не нашли, пробуем рекурсивно
-                const foundData = findAuctionData(data);
-                if (foundData) {
+                // Извлекаем данные об аукционе
+                if (data.auctionhouse) {
+                    const auctionData = data.auctionhouse;
+                    
                     return {
                         id: itemId,
-                        name: foundData.name || `Предмет #${itemId}`,
-                        price: foundData.avg || foundData.price || 0,
-                        quantity: foundData.count || foundData.quantity || 0,
-                        avgPrice: foundData.avg || 0,
+                        name: data.name || data.title || `Предмет #${itemId}`,
+                        price: auctionData.avg || 0,
+                        quantity: auctionData.count || 0,
+                        avgPrice: auctionData.avg || 0,
+                        trend: auctionData.state || '=',
+                        old: auctionData.old || false,
+                        link: `https://sirus.su/base/item/${itemId}`
+                    };
+                }
+                
+                // Рекурсивный поиск, если auctionhouse не на верхнем уровне
+                const found = findAuctionData(data);
+                if (found) {
+                    return {
+                        id: itemId,
+                        name: found.name || `Предмет #${itemId}`,
+                        price: found.auctionhouse.avg || 0,
+                        quantity: found.auctionhouse.count || 0,
+                        avgPrice: found.auctionhouse.avg || 0,
+                        trend: found.auctionhouse.state || '=',
+                        old: found.auctionhouse.old || false,
                         link: `https://sirus.su/base/item/${itemId}`
                     };
                 }
@@ -586,48 +637,13 @@
             return null;
         }
 
-        function extractItemData(data, itemId) {
-            // Проверяем, есть ли auctionhouse в ответе
-            if (data.auctionhouse) {
-                return {
-                    id: itemId,
-                    name: data.name || data.title || `Предмет #${itemId}`,
-                    price: data.auctionhouse.avg || 0,
-                    quantity: data.auctionhouse.count || 0,
-                    avgPrice: data.auctionhouse.avg || 0,
-                    link: `https://sirus.su/base/item/${itemId}`
-                };
-            }
-            
-            // Проверяем другие поля
-            if (data.item) {
-                const item = data.item;
-                return {
-                    id: itemId,
-                    name: item.name || item.title || `Предмет #${itemId}`,
-                    price: item.auctionhouse?.avg || item.price || 0,
-                    quantity: item.auctionhouse?.count || item.quantity || 0,
-                    avgPrice: item.auctionhouse?.avg || item.avgPrice || 0,
-                    link: `https://sirus.su/base/item/${itemId}`
-                };
-            }
-            
-            return null;
-        }
-
         function findAuctionData(obj, depth = 0) {
             if (depth > 10 || !obj || typeof obj !== 'object') return null;
             
-            // Проверяем наличие auctionhouse
             if (obj.auctionhouse) {
-                return {
-                    name: obj.name || obj.title || '',
-                    avg: obj.auctionhouse.avg || 0,
-                    count: obj.auctionhouse.count || 0
-                };
+                return obj;
             }
             
-            // Рекурсивно проверяем
             if (Array.isArray(obj)) {
                 for (const item of obj) {
                     const result = findAuctionData(item, depth + 1);
@@ -656,6 +672,32 @@
             if (copperRemainder > 0 || result === '') result += `${copperRemainder}м`;
             
             return result.trim();
+        }
+
+        function getTrendSymbol(trend) {
+            switch (trend) {
+                case '>':
+                    return '<span class="trend-indicator trend-up-arrow">▲</span>';
+                case '<':
+                    return '<span class="trend-indicator trend-down-arrow">▼</span>';
+                case '=':
+                    return '<span class="trend-indicator trend-stable-dash">=</span>';
+                default:
+                    return '<span class="trend-indicator trend-stable-dash">?</span>';
+            }
+        }
+
+        function getTrendLabel(trend) {
+            switch (trend) {
+                case '>':
+                    return 'Растет';
+                case '<':
+                    return 'Падает';
+                case '=':
+                    return 'Стабильна';
+                default:
+                    return 'Неизвестно';
+            }
         }
 
         function updateProgress(current, total, message) {
@@ -698,7 +740,8 @@
                     items.push({
                         name: match[1],
                         price: parseInt(match[2]),
-                        quantity: match[3] ? parseInt(match[3]) : 1
+                        quantity: match[3] ? parseInt(match[3]) : 1,
+                        trend: '='
                     });
                 }
             }
@@ -740,7 +783,8 @@
                 auctionData.push(normalizeItem({
                     name: parts[0].replace(/"/g, ''),
                     price: parseFloat(parts[1]) || 0,
-                    quantity: parts[2] ? parseInt(parts[2]) : 1
+                    quantity: parts[2] ? parseInt(parts[2]) : 1,
+                    trend: '='
                 }));
             }
             
@@ -756,14 +800,16 @@
                 price: parseFloat(item.price || 0),
                 quantity: parseInt(item.quantity || 1),
                 avgPrice: parseFloat(item.avgPrice || 0),
+                trend: item.trend || '=',
                 link: item.link || ''
             };
         }
 
         function loadSampleData() {
             const sampleItems = [
-                { name: 'Лотос скверны', price: 8663250, quantity: 575, avgPrice: 8663250 },
-                { name: 'Ткань Пустоты', price: 8000000, quantity: 200, avgPrice: 8000000 }
+                { id: 22794, name: 'Предмет #22794', price: 8663250, quantity: 575, trend: '<' },
+                { id: 21877, name: 'Предмет #21877', price: 8000000, quantity: 200, trend: '>' },
+                { id: 22449, name: 'Предмет #22449', price: 4500000, quantity: 150, trend: '=' }
             ];
             auctionData = sampleItems.map(normalizeItem);
             applyFilters();
@@ -783,10 +829,15 @@
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
             const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+            const trendFilter = document.getElementById('trendFilter').value;
 
             filteredData = auctionData.filter(item => {
-                if (searchTerm && !item.name.toLowerCase().includes(searchTerm)) return false;
+                if (searchTerm) {
+                    const searchableText = `${item.name} #${item.id}`.toLowerCase();
+                    if (!searchableText.includes(searchTerm)) return false;
+                }
                 if (item.price < minPrice || item.price > maxPrice) return false;
+                if (trendFilter !== 'all' && item.trend !== trendFilter) return false;
                 return true;
             });
 
@@ -832,10 +883,13 @@
             const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
             document.getElementById('avgPrice').textContent = formatMoney(avgPrice);
             
-            const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-            const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-            document.getElementById('minPriceStat').textContent = formatMoney(minPrice);
-            document.getElementById('maxPriceStat').textContent = formatMoney(maxPrice);
+            const trendingUp = auctionData.filter(item => item.trend === '>').length;
+            const trendingDown = auctionData.filter(item => item.trend === '<').length;
+            const trendingStable = auctionData.filter(item => item.trend === '=' || !item.trend).length;
+            
+            document.getElementById('trendingUp').textContent = trendingUp;
+            document.getElementById('trendingDown').textContent = trendingDown;
+            document.getElementById('trendingStable').textContent = trendingStable;
         }
 
         function updateTable() {
@@ -864,13 +918,19 @@
                 
                 html += `
                     <tr>
-                        <td>${item.name}</td>
+                        <td>
+                            <div>
+                                <div>${item.name}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">ID: ${item.id}</div>
+                            </div>
+                        </td>
                         <td>${formatMoney(item.price)}</td>
                         <td>${item.quantity}</td>
                         <td>
-                            <span class="badge badge-info">
-                                ${item.quantity > 0 ? 'В наличии' : 'Нет'}
-                            </span>
+                            <div>
+                                ${getTrendSymbol(item.trend)}
+                                <span style="margin-left: 5px;">${getTrendLabel(item.trend)}</span>
+                            </div>
                         </td>
                         <td>
                             <button class="btn" onclick="window.open('${item.link || '#'}', '_blank')">
@@ -909,10 +969,13 @@
                 timestamp: new Date().toISOString(),
                 totalItems: auctionData.length,
                 items: auctionData.map(item => ({
+                    id: item.id,
                     name: item.name,
                     price: item.price,
                     priceFormatted: formatMoney(item.price),
                     quantity: item.quantity,
+                    trend: item.trend,
+                    trendLabel: getTrendLabel(item.trend),
                     link: item.link
                 }))
             };
@@ -931,6 +994,7 @@
         document.getElementById('searchInput').addEventListener('input', applyFilters);
         document.getElementById('minPrice').addEventListener('input', applyFilters);
         document.getElementById('maxPrice').addEventListener('input', applyFilters);
+        document.getElementById('trendFilter').addEventListener('change', applyFilters);
         document.getElementById('sortBy').addEventListener('change', function(e) {
             currentSort.column = e.target.value;
             applyFilters();
