@@ -65,16 +65,8 @@
             border: 1px solid var(--border);
         }
 
-        .parser-controls {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-        }
-
         .input-group {
-            flex: 1;
-            min-width: 300px;
+            margin-bottom: 15px;
         }
 
         .input-group label {
@@ -85,7 +77,7 @@
             font-weight: 600;
         }
 
-        .input-group input, .input-group textarea {
+        .input-group textarea {
             width: 100%;
             padding: 12px;
             border-radius: 8px;
@@ -93,9 +85,6 @@
             background: var(--bg-card);
             color: var(--text-primary);
             font-size: 14px;
-        }
-
-        .input-group textarea {
             height: 100px;
             resize: vertical;
             font-family: monospace;
@@ -150,12 +139,6 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid var(--border);
-            transition: all 0.3s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
 
         .stat-value {
@@ -178,7 +161,6 @@
             border-radius: 16px;
             overflow: hidden;
             border: 1px solid var(--border);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         table {
@@ -198,10 +180,6 @@
             position: sticky;
             top: 0;
             z-index: 10;
-        }
-
-        th:hover {
-            color: var(--text-primary);
         }
 
         td {
@@ -278,7 +256,6 @@
             font-weight: 600;
             z-index: 1000;
             animation: slideIn 0.3s ease-out;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         @keyframes slideIn {
@@ -290,29 +267,6 @@
                 transform: translateX(0);
                 opacity: 1;
             }
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 999;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            padding: 30px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
         }
 
         .filters {
@@ -372,25 +326,19 @@
     <div class="container">
         <header>
             <h1>🔍 Sirus Auction Analyzer</h1>
-            <p class="subtitle">Парсер аукциона с сайта sirus.su через API</p>
+            <p class="subtitle">Парсер аукциона через API sirus.su</p>
         </header>
 
         <!-- Секция парсера -->
         <div class="parser-section">
-            <h2 style="margin-bottom: 20px;">📡 Парсинг через API sirus.su</h2>
+            <h2 style="margin-bottom: 20px;">📡 Парсинг через API</h2>
             
-            <div class="parser-controls">
-                <div class="input-group">
-                    <label>Список ID предметов (через запятую или пробел)</label>
-                    <textarea id="itemIdsInput" placeholder="Например: 22794, 12345, 67890"></textarea>
-                </div>
-                <div class="input-group">
-                    <label>Или вставьте ссылки на страницы предметов</label>
-                    <textarea id="itemLinksInput" placeholder="https://sirus.su/base/item/22794/x3/лотос-скверны"></textarea>
-                </div>
+            <div class="input-group">
+                <label>Список ID предметов (через запятую или пробел)</label>
+                <textarea id="itemIdsInput" placeholder="Например: 22794, 21877, 22449"></textarea>
             </div>
             
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px;">
                 <button class="btn btn-primary" onclick="startParsing()">
                     🚀 Начать парсинг
                 </button>
@@ -404,7 +352,7 @@
             
             <div class="loading" id="loadingIndicator">
                 <div class="spinner"></div>
-                <p>Парсинг данных с sirus.su...</p>
+                <p>Парсинг данных...</p>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
@@ -415,10 +363,10 @@
         <!-- Загрузка файла -->
         <div class="parser-section">
             <h2 style="margin-bottom: 20px;">📁 Альтернативная загрузка</h2>
-            <div class="parser-controls">
+            <div style="display: flex; gap: 10px;">
                 <input type="file" id="fileInput" accept=".lua,.csv,.txt,.json" style="display: none;">
                 <button class="btn" onclick="document.getElementById('fileInput').click()">
-                    📄 Загрузить файл Auctionator.lua
+                    📄 Загрузить файл
                 </button>
                 <button class="btn" onclick="loadSampleData()">
                     🧪 Пример данных
@@ -433,14 +381,10 @@
         </div>
 
         <!-- Статистика -->
-        <div class="stats-grid" id="statsGrid">
+        <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Всего предметов</div>
                 <div class="stat-value" id="totalItems">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Выгодные сделки</div>
-                <div class="stat-value profit" id="profitableDeals">0</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Средняя цена</div>
@@ -482,7 +426,7 @@
 
         <!-- Таблица -->
         <div class="table-container">
-            <table id="itemsTable">
+            <table>
                 <thead>
                     <tr>
                         <th onclick="sortTable('name')">Предмет</th>
@@ -513,14 +457,6 @@
         </div>
     </div>
 
-    <div class="modal" id="itemModal">
-        <div class="modal-content">
-            <h2 id="modalTitle"></h2>
-            <div id="modalContent"></div>
-            <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
-        </div>
-    </div>
-
     <script>
         let auctionData = [];
         let filteredData = [];
@@ -529,58 +465,31 @@
         let currentSort = { column: 'price', direction: 'asc' };
         let isParsing = false;
 
-        // Загрузка файла
         document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
-                const content = e.target.result;
-                parseFile(content, file.name);
+                parseFile(e.target.result, file.name);
             };
             reader.readAsText(file);
         }
 
-        // Парсинг с сайта через API
         async function startParsing() {
             if (isParsing) return;
             
             const idsInput = document.getElementById('itemIdsInput').value.trim();
-            const linksInput = document.getElementById('itemLinksInput').value.trim();
-            
-            if (!idsInput && !linksInput) {
-                showToast('Введите ID предметов или ссылки');
+            if (!idsInput) {
+                showToast('Введите ID предметов');
                 return;
             }
             
             isParsing = true;
             document.getElementById('loadingIndicator').style.display = 'block';
             
-            // Собираем список ID
-            let itemIds = [];
-            
-            if (idsInput) {
-                const matches = idsInput.match(/\d+/g);
-                if (matches) {
-                    itemIds = itemIds.concat(matches.map(Number));
-                }
-            }
-            
-            if (linksInput) {
-                const links = linksInput.split('\n').filter(l => l.trim());
-                for (const link of links) {
-                    const match = link.match(/\/item\/(\d+)/);
-                    if (match) {
-                        itemIds.push(Number(match[1]));
-                    }
-                }
-            }
-            
-            // Убираем дубликаты
-            itemIds = [...new Set(itemIds)];
+            const itemIds = [...new Set(idsInput.match(/\d+/g).map(Number))];
             
             if (itemIds.length === 0) {
                 showToast('Не удалось найти ID предметов');
@@ -589,13 +498,12 @@
                 return;
             }
             
-            // Очищаем старые данные
             auctionData = [];
             updateTable();
             updateStats();
             
-            // Парсим каждый предмет через API
             let successCount = 0;
+            
             for (let i = 0; i < itemIds.length; i++) {
                 if (!isParsing) break;
                 
@@ -603,20 +511,17 @@
                 updateProgress(i, itemIds.length, `Парсинг предмета #${itemId}`);
                 
                 try {
-                    const itemData = await fetchItemFromAPI(itemId);
+                    const itemData = await fetchItemData(itemId);
                     if (itemData && itemData.name) {
                         auctionData.push(itemData);
                         successCount++;
                         showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)}`);
-                    } else {
-                        console.warn(`Не удалось получить данные для предмета ${itemId}`);
                     }
                 } catch (error) {
-                    console.error(`Ошибка получения данных для предмета ${itemId}:`, error);
+                    console.error(`Ошибка для предмета ${itemId}:`, error);
                 }
                 
-                // Задержка между запросами
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
             
             isParsing = false;
@@ -624,7 +529,7 @@
             
             applyFilters();
             updateStats();
-            showToast(`Успешно получено ${successCount} из ${itemIds.length} предметов`);
+            showToast(`Успешно получено ${successCount} из ${itemIds.length}`);
         }
 
         function stopParsing() {
@@ -633,102 +538,90 @@
             showToast('Парсинг остановлен');
         }
 
-        async function fetchItemFromAPI(itemId) {
-            // Пробуем разные API endpoints
-            const apiUrls = [
-                `https://sirus.su/api/v2/item/${itemId}`,
-                `https://sirus.su/api/item/${itemId}`,
-                `https://sirus.su/api/v1/item/${itemId}`,
-                `https://sirus.su/api/v2/items/${itemId}`,
-                `https://sirus.su/api/items/${itemId}`,
-                `https://sirus.su/api/v2/base/item/${itemId}`,
-                `https://sirus.su/api/base/item/${itemId}`
-            ];
-            
-            for (const apiUrl of apiUrls) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (!response.ok) continue;
-                    
+        async function fetchItemData(itemId) {
+            try {
+                // Пробуем POST запрос к API
+                const response = await fetch('https://sirus.su/api/v2/data', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        itemId: itemId,
+                        id: itemId
+                    })
+                });
+                
+                if (response.ok) {
                     const data = await response.json();
-                    const itemData = extractItemDataFromAPI(data, itemId);
-                    
-                    if (itemData && itemData.name) {
-                        return itemData;
-                    }
-                } catch (error) {
-                    console.warn(`API ${apiUrl} не работает:`, error.message);
+                    const itemData = extractFromResponse(data, itemId);
+                    if (itemData) return itemData;
                 }
+                
+                // Пробуем GET запрос
+                const getResponse = await fetch(`https://sirus.su/api/v2/data?itemId=${itemId}`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (getResponse.ok) {
+                    const data = await getResponse.json();
+                    const itemData = extractFromResponse(data, itemId);
+                    if (itemData) return itemData;
+                }
+                
+            } catch (error) {
+                console.warn('Ошибка API запроса:', error);
             }
             
-            // Если API не работает, пробуем получить данные через Nuxt data
-            return await fetchItemFromNuxtData(itemId);
+            // Запасной вариант - парсим HTML
+            return await fetchItemFromHTML(itemId);
         }
 
-        async function fetchItemFromNuxtData(itemId) {
+        async function fetchItemFromHTML(itemId) {
             try {
-                const url = `https://sirus.su/base/item/${itemId}`;
-                const response = await fetch(url);
-                
+                const response = await fetch(`https://sirus.su/base/item/${itemId}`);
                 if (!response.ok) return null;
                 
                 const html = await response.text();
                 
-                // Ищем данные в Nuxt payload
-                const nuxtDataMatch = html.match(/<script type="application\/json" data-nuxt-data="nuxt-app" data-ssr="false" id="__NUXT_DATA__">(.*?)<\/script>/);
-                
-                if (nuxtDataMatch) {
-                    try {
-                        const jsonData = JSON.parse(nuxtDataMatch[1]);
-                        const itemData = extractItemDataFromNuxt(jsonData, itemId);
-                        
-                        if (itemData && itemData.name) {
-                            return itemData;
-                        }
-                    } catch (e) {
-                        console.warn('Ошибка парсинга Nuxt data:', e);
-                    }
+                // Ищем данные в Nuxt
+                const nuxtMatch = html.match(/<script type="application\/json" data-nuxt-data="nuxt-app"[^>]*>(.*?)<\/script>/);
+                if (nuxtMatch) {
+                    const data = JSON.parse(nuxtMatch[1]);
+                    const itemData = extractFromResponse(data, itemId);
+                    if (itemData) return itemData;
                 }
                 
-                // Ищем данные в window.__NUXT__
-                const nuxtConfigMatch = html.match(/window\.__NUXT__\s*=\s*({.*?});/);
-                
-                if (nuxtConfigMatch) {
-                    try {
-                        const nuxtConfig = JSON.parse(nuxtConfigMatch[1]);
-                        const itemData = extractItemDataFromNuxt(nuxtConfig, itemId);
-                        
-                        if (itemData && itemData.name) {
-                            return itemData;
-                        }
-                    } catch (e) {
-                        console.warn('Ошибка парсинга Nuxt config:', e);
-                    }
+                // Ищем window.__NUXT__
+                const nuxtConfig = html.match(/window\.__NUXT__\s*=\s*({.*?});/);
+                if (nuxtConfig) {
+                    const data = JSON.parse(nuxtConfig[1]);
+                    const itemData = extractFromResponse(data, itemId);
+                    if (itemData) return itemData;
                 }
+                
             } catch (error) {
-                console.error(`Ошибка загрузки страницы предмета ${itemId}:`, error);
+                console.error('Ошибка парсинга HTML:', error);
             }
             
             return null;
         }
 
-        function extractItemDataFromAPI(data, itemId) {
+        function extractFromResponse(data, itemId) {
             // Рекурсивно ищем данные о предмете
-            const itemData = findItemData(data);
+            const found = findItemInData(data, itemId);
             
-            if (itemData && itemData.name) {
+            if (found) {
                 return {
                     id: itemId,
-                    name: itemData.name || itemData.title || `Предмет #${itemId}`,
-                    price: extractPrice(itemData),
-                    quantity: itemData.quantity || itemData.count || itemData.amount || 0,
-                    avgPrice: extractAvgPrice(itemData),
+                    name: found.name || found.title || found.itemName || `Предмет #${itemId}`,
+                    price: extractPrice(found),
+                    quantity: found.quantity || found.count || found.amount || 0,
+                    avgPrice: found.avgPrice || found.marketPrice || 0,
                     link: `https://sirus.su/base/item/${itemId}`
                 };
             }
@@ -736,44 +629,24 @@
             return null;
         }
 
-        function extractItemDataFromNuxt(data, itemId) {
-            // Рекурсивно ищем данные о предмете
-            const itemData = findItemData(data);
-            
-            if (itemData && (itemData.name || itemData.title)) {
-                return {
-                    id: itemId,
-                    name: itemData.name || itemData.title || `Предмет #${itemId}`,
-                    price: extractPrice(itemData),
-                    quantity: itemData.quantity || itemData.count || itemData.amount || 0,
-                    avgPrice: extractAvgPrice(itemData),
-                    link: `https://sirus.su/base/item/${itemId}`
-                };
-            }
-            
-            return null;
-        }
-
-        function findItemData(obj, depth = 0) {
+        function findItemInData(obj, itemId, depth = 0) {
             if (depth > 10 || !obj || typeof obj !== 'object') return null;
             
-            // Проверяем текущий объект
-            if (obj.name || obj.title) {
-                if (obj.price || obj.buyout || obj.quantity || obj.amount) {
-                    return obj;
-                }
+            // Проверяем наличие ID
+            if (obj.id === itemId || obj.itemId === itemId || obj.entry === itemId) {
+                return obj;
             }
             
-            // Рекурсивно проверяем вложенные объекты
+            // Рекурсивно проверяем
             if (Array.isArray(obj)) {
                 for (const item of obj) {
-                    const result = findItemData(item, depth + 1);
+                    const result = findItemInData(item, itemId, depth + 1);
                     if (result) return result;
                 }
             } else {
                 for (const key in obj) {
                     if (obj.hasOwnProperty(key)) {
-                        const result = findItemData(obj[key], depth + 1);
+                        const result = findItemInData(obj[key], itemId, depth + 1);
                         if (result) return result;
                     }
                 }
@@ -783,12 +656,10 @@
         }
 
         function extractPrice(data) {
-            // Ищем цену в разных форматах
             if (data.price) return parseInt(data.price);
             if (data.buyout) return parseInt(data.buyout);
             if (data.bid) return parseInt(data.bid);
             
-            // Ищем в формате money: { gold, silver, copper }
             if (data.money) {
                 const gold = data.money.gold || 0;
                 const silver = data.money.silver || 0;
@@ -796,21 +667,12 @@
                 return (gold * 10000) + (silver * 100) + copper;
             }
             
-            // Ищем в формате gold, silver, copper
             if (data.gold || data.silver || data.copper) {
                 const gold = data.gold || 0;
                 const silver = data.silver || 0;
                 const copper = data.copper || 0;
                 return (gold * 10000) + (silver * 100) + copper;
             }
-            
-            return 0;
-        }
-
-        function extractAvgPrice(data) {
-            if (data.avgPrice) return parseInt(data.avgPrice);
-            if (data.averagePrice) return parseInt(data.averagePrice);
-            if (data.marketPrice) return parseInt(data.marketPrice);
             
             return 0;
         }
@@ -854,40 +716,30 @@
 
         function parseLuaFile(content) {
             const items = [];
-            
             content = content.replace(/--\[\[.*?\]\]/gs, '');
             content = content.replace(/--.*$/gm, '');
             
             const patterns = [
                 /\["([^"]+)"\]\s*=\s*\{[^}]*?\["price"\]\s*=\s*(\d+)[^}]*?\["quantity"\]\s*=\s*(\d+)/g,
-                /\["([^"]+)"\]\s*=\s*(\d+)/g,
-                /\[(\d+)\]\s*=\s*\{[^}]*?\["name"\]\s*=\s*"([^"]+)"[^}]*?\["price"\]\s*=\s*(\d+)/g
+                /\["([^"]+)"\]\s*=\s*(\d+)/g
             ];
             
             for (const pattern of patterns) {
                 let match;
                 while ((match = pattern.exec(content)) !== null) {
-                    if (match.length >= 4) {
-                        items.push({
-                            name: match[1],
-                            price: parseInt(match[2]),
-                            quantity: parseInt(match[3]) || 1
-                        });
-                    } else if (match.length >= 3) {
-                        items.push({
-                            name: match[1],
-                            price: parseInt(match[2]),
-                            quantity: 1
-                        });
-                    }
+                    items.push({
+                        name: match[1],
+                        price: parseInt(match[2]),
+                        quantity: match[3] ? parseInt(match[3]) : 1
+                    });
                 }
             }
             
             if (items.length > 0) {
-                auctionData = items.map(item => normalizeItem(item));
+                auctionData = items.map(normalizeItem);
                 applyFilters();
                 updateStats();
-                showToast(`Загружено ${auctionData.length} предметов из Lua файла`);
+                showToast(`Загружено ${auctionData.length} предметов`);
             }
         }
 
@@ -895,13 +747,13 @@
             try {
                 const jsonData = JSON.parse(content);
                 if (Array.isArray(jsonData)) {
-                    auctionData = jsonData.map(item => normalizeItem(item));
+                    auctionData = jsonData.map(normalizeItem);
                 } else if (jsonData.items) {
-                    auctionData = jsonData.items.map(item => normalizeItem(item));
+                    auctionData = jsonData.items.map(normalizeItem);
                 }
                 applyFilters();
                 updateStats();
-                showToast(`Загружено ${auctionData.length} предметов из JSON`);
+                showToast(`Загружено ${auctionData.length} предметов`);
             } catch (e) {
                 showToast('Ошибка парсинга JSON');
             }
@@ -914,7 +766,6 @@
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
-                
                 const parts = line.split(/[,\t;]/);
                 if (parts.length < 2) continue;
                 
@@ -927,7 +778,7 @@
             
             applyFilters();
             updateStats();
-            showToast(`Загружено ${auctionData.length} предметов из CSV`);
+            showToast(`Загружено ${auctionData.length} предметов`);
         }
 
         function normalizeItem(item) {
@@ -944,13 +795,9 @@
         function loadSampleData() {
             const sampleItems = [
                 { name: 'Лотос скверны', price: 8663250, quantity: 20, avgPrice: 10000000 },
-                { name: 'Ткань Пустоты', price: 8000000, quantity: 5, avgPrice: 12000000 },
-                { name: 'Осколок льда', price: 4500000, quantity: 50, avgPrice: 3800000 },
-                { name: 'Зелье лечения', price: 10000, quantity: 100, avgPrice: 8500 },
-                { name: 'Эликсир мудрости', price: 20000000, quantity: 3, avgPrice: 35000000 }
+                { name: 'Ткань Пустоты', price: 8000000, quantity: 5, avgPrice: 12000000 }
             ];
-
-            auctionData = sampleItems.map(item => normalizeItem(item));
+            auctionData = sampleItems.map(normalizeItem);
             applyFilters();
             updateStats();
             showToast('Загружены примеры данных');
@@ -985,7 +832,6 @@
             
             filteredData.sort((a, b) => {
                 let result = 0;
-                
                 switch (column) {
                     case 'name':
                         result = a.name.localeCompare(b.name);
@@ -997,7 +843,6 @@
                         result = a.quantity - b.quantity;
                         break;
                 }
-                
                 return direction === 'asc' ? result : -result;
             });
         }
@@ -1009,15 +854,11 @@
                 currentSort.column = column;
                 currentSort.direction = 'desc';
             }
-            
             applyFilters();
         }
 
         function updateStats() {
             document.getElementById('totalItems').textContent = auctionData.length;
-            
-            const profitableItems = auctionData.filter(item => item.avgPrice > 0 && item.avgPrice > item.price);
-            document.getElementById('profitableDeals').textContent = profitableItems.length;
             
             const prices = auctionData.map(item => item.price).filter(p => p > 0);
             const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
@@ -1039,9 +880,9 @@
                     <tr>
                         <td colspan="5">
                             <div class="empty-state">
-                                <div class="empty-state-icon">🔍</div>
-                                <h3>Ничего не найдено</h3>
-                                <p>Попробуйте изменить фильтры</p>
+                                <div class="empty-state-icon">📦</div>
+                                <h3>Нет данных</h3>
+                                <p>Введите ID предметов и нажмите "Начать парсинг"</p>
                             </div>
                         </td>
                     </tr>
@@ -1053,12 +894,11 @@
             for (let i = startIndex; i < endIndex; i++) {
                 const item = filteredData[i];
                 const isProfitable = item.avgPrice > 0 && item.avgPrice > item.price;
-                const priceFormatted = formatMoney(item.price);
                 
                 html += `
-                    <tr onclick="showItemDetails('${item.id}')" style="cursor: pointer;">
+                    <tr>
                         <td>${item.name}</td>
-                        <td>${priceFormatted}</td>
+                        <td>${formatMoney(item.price)}</td>
                         <td>${item.quantity}</td>
                         <td>
                             <span class="badge ${isProfitable ? 'badge-profit' : 'badge-info'}">
@@ -1066,7 +906,7 @@
                             </span>
                         </td>
                         <td>
-                            <button class="btn" onclick="event.stopPropagation(); window.open('${item.link || '#'}', '_blank')">
+                            <button class="btn" onclick="window.open('${item.link || '#'}', '_blank')">
                                 🔗 Открыть
                             </button>
                         </td>
@@ -1083,39 +923,10 @@
         function changePage(delta) {
             const totalPages = Math.ceil(filteredData.length / itemsPerPage);
             const newPage = currentPage + delta;
-            
             if (newPage >= 1 && newPage <= totalPages) {
                 currentPage = newPage;
                 updateTable();
             }
-        }
-
-        function showItemDetails(id) {
-            const item = auctionData.find(i => i.id === id);
-            if (!item) return;
-            
-            const isProfitable = item.avgPrice > 0 && item.avgPrice > item.price;
-            
-            document.getElementById('modalTitle').textContent = item.name;
-            document.getElementById('modalContent').innerHTML = `
-                <div style="margin: 20px 0;">
-                    <p><strong>Цена:</strong> ${formatMoney(item.price)}</p>
-                    <p><strong>Количество:</strong> ${item.quantity}</p>
-                    <p><strong>Средняя цена:</strong> ${item.avgPrice ? formatMoney(item.avgPrice) : 'Нет данных'}</p>
-                    <p><strong>Статус:</strong> 
-                        <span class="badge ${isProfitable ? 'badge-profit' : 'badge-info'}">
-                            ${isProfitable ? 'Выгодно' : 'Обычная цена'}
-                        </span>
-                    </p>
-                    ${item.link ? `<p><a href="${item.link}" target="_blank" style="color: var(--accent-info);">Открыть на sirus.su</a></p>` : ''}
-                </div>
-            `;
-            
-            document.getElementById('itemModal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('itemModal').style.display = 'none';
         }
 
         function showToast(message) {
@@ -1123,26 +934,18 @@
             toast.className = 'toast';
             toast.textContent = message;
             document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         function exportAnalysis() {
             const analysis = {
                 timestamp: new Date().toISOString(),
-                source: 'sirus.su API parser',
                 totalItems: auctionData.length,
                 items: auctionData.map(item => ({
                     name: item.name,
-                    id: item.id,
-                    priceCopper: item.price,
+                    price: item.price,
                     priceFormatted: formatMoney(item.price),
                     quantity: item.quantity,
-                    avgPriceCopper: item.avgPrice,
-                    avgPriceFormatted: item.avgPrice ? formatMoney(item.avgPrice) : '',
-                    isProfitable: item.avgPrice > 0 && item.avgPrice > item.price,
                     link: item.link
                 }))
             };
@@ -1154,7 +957,6 @@
             a.download = `sirus_auction_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            
             showToast('Анализ экспортирован');
         }
 
