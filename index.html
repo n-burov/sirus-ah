@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sirus Auction Analyzer - Парсер аукциона</title>
+    <style>
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #4ade80;
+            --accent-danger: #f87171;
+            --accent-warning: #fbbf24;
+            --accent-info: #60a5fa;
+            --border: #2a2a3e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .parser-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+        }
+
+        .parser-controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .input-group textarea {
+            height: 100px;
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-success {
+            background: var(--accent);
+            color: #000;
+            border: none;
+        }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            color: #fff;
+            border: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .profit { color: var(--accent); }
+        .loss { color: var(--accent-danger); }
+        .warning { color: var(--accent-warning); }
+        .info { color: var(--accent-info); }
+
+        .table-container {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: var(--bg-card);
+            padding: 15px;
+            text-align: left;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th:hover {
+            color: var(--text-primary);
+        }
+
+        td {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-profit {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--accent);
+        }
+
+        .badge-info {
+            background: rgba(96, 165, 250, 0.2);
+            color: var(--accent-info);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border);
+            border-top-color: var(--accent-info);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 20px;
+            align-items: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .cors-notice {
+            background: rgba(251, 191, 36, 0.1);
+            border-left: 4px solid var(--accent-warning);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .cors-notice code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Sirus Auction Analyzer</h1>
+            <p class="subtitle">Парсер аукциона с сайта sirus.su для WoW 3.3.5</p>
+            <div class="cors-notice">
+                <strong>⚠️ Важно:</strong> Для работы парсера требуется CORS прокси. 
+                Если запросы не работают, используйте прокси из списка ниже или 
+                <a href="https://github.com/Rob--W/cors-anywhere" target="_blank" style="color: var(--accent-info);">установите свой</a>.
+            </div>
+        </header>
+
+        <!-- Секция парсера -->
+        <div class="parser-section">
+            <h2 style="margin-bottom: 20px;">📡 Парсинг с сайта sirus.su</h2>
+            
+            <div class="input-group" style="margin-bottom: 15px;">
+                <label>CORS Прокси (если не работает, попробуйте другой)</label>
+                <select id="proxySelect" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
+                    <option value="https://api.allorigins.win/raw?url=">AllOrigins</option>
+                    <option value="https://cors-anywhere.herokuapp.com/">CORS Anywhere</option>
+                    <option value="https://api.codetabs.com/v1/proxy?quest=">CodeTabs</option>
+                    <option value="https://corsproxy.io/?">CORS Proxy</option>
+                </select>
+            </div>
+            
+            <div class="parser-controls">
+                <div class="input-group">
+                    <label>Список ID предметов (через запятую или пробел)</label>
+                    <textarea id="itemIdsInput" placeholder="Например: 22794, 12345, 67890"></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Или вставьте ссылки на страницы предметов</label>
+                    <textarea id="itemLinksInput" placeholder="https://sirus.su/base/item/22794/x3/лотос-скверны"></textarea>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="startParsing()">
+                    🚀 Начать парсинг
+                </button>
+                <button class="btn btn-danger" onclick="stopParsing()">
+                    ⏹ Остановить
+                </button>
+                <button class="btn" onclick="loadSampleIds()">
+                    📋 Пример ID
+                </button>
+            </div>
+            
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <p>Парсинг данных с sirus.su...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <p id="progressText">0/0 предметов</p>
+            </div>
+        </div>
+
+        <!-- Загрузка файла -->
+        <div class="parser-section">
+            <h2 style="margin-bottom: 20px;">📁 Альтернативная загрузка</h2>
+            <div class="parser-controls">
+                <input type="file" id="fileInput" accept=".lua,.csv,.txt,.json" style="display: none;">
+                <button class="btn" onclick="document.getElementById('fileInput').click()">
+                    📄 Загрузить файл Auctionator.lua
+                </button>
+                <button class="btn" onclick="loadSampleData()">
+                    🧪 Пример данных
+                </button>
+                <button class="btn btn-danger" onclick="clearData()">
+                    🗑️ Очистить
+                </button>
+                <button class="btn btn-success" onclick="exportAnalysis()">
+                    💾 Экспорт
+                </button>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">Всего предметов</div>
+                <div class="stat-value" id="totalItems">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Выгодные сделки</div>
+                <div class="stat-value profit" id="profitableDeals">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Средняя цена</div>
+                <div class="stat-value" id="avgPrice">0g</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Мин. цена</div>
+                <div class="stat-value warning" id="minPriceStat">0g</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Макс. цена</div>
+                <div class="stat-value info" id="maxPriceStat">0g</div>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="filters">
+            <div class="filter-group">
+                <label>Поиск</label>
+                <input type="text" id="searchInput" placeholder="Название предмета...">
+            </div>
+            <div class="filter-group">
+                <label>Мин. цена (медь)</label>
+                <input type="number" id="minPrice" placeholder="0">
+            </div>
+            <div class="filter-group">
+                <label>Макс. цена (медь)</label>
+                <input type="number" id="maxPrice" placeholder="∞">
+            </div>
+            <div class="filter-group">
+                <label>Сортировка</label>
+                <select id="sortBy">
+                    <option value="price">По цене</option>
+                    <option value="name">По названию</option>
+                    <option value="quantity">По количеству</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-container">
+            <table id="itemsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('name')">Предмет</th>
+                        <th onclick="sortTable('price')">Цена</th>
+                        <th onclick="sortTable('quantity')">Кол-во</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📦</div>
+                                <h3>Нет данных</h3>
+                                <p>Введите ID предметов и нажмите "Начать парсинг"</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <button class="btn" onclick="changePage(-1)">← Назад</button>
+            <span id="pageInfo">Страница 1 из 1</span>
+            <button class="btn" onclick="changePage(1)">Вперед →</button>
+        </div>
+    </div>
+
+    <div class="modal" id="itemModal">
+        <div class="modal-content">
+            <h2 id="modalTitle"></h2>
+            <div id="modalContent"></div>
+            <button class="btn btn-primary" onclick="closeModal()">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        let auctionData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+        let currentSort = { column: 'price', direction: 'asc' };
+        let isParsing = false;
+
+        // Загрузка файла
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                parseFile(content, file.name);
+            };
+            reader.readAsText(file);
+        }
+
+        // Парсинг с сайта
+        async function startParsing() {
+            if (isParsing) return;
+            
+            const idsInput = document.getElementById('itemIdsInput').value.trim();
+            const linksInput = document.getElementById('itemLinksInput').value.trim();
+            
+            if (!idsInput && !linksInput) {
+                showToast('Введите ID предметов или ссылки');
+                return;
+            }
+            
+            isParsing = true;
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            // Собираем список ID
+            let itemIds = [];
+            
+            if (idsInput) {
+                const matches = idsInput.match(/\d+/g);
+                if (matches) {
+                    itemIds = itemIds.concat(matches.map(Number));
+                }
+            }
+            
+            if (linksInput) {
+                const links = linksInput.split('\n').filter(l => l.trim());
+                for (const link of links) {
+                    const match = link.match(/\/item\/(\d+)/);
+                    if (match) {
+                        itemIds.push(Number(match[1]));
+                    }
+                }
+            }
+            
+            // Убираем дубликаты
+            itemIds = [...new Set(itemIds)];
+            
+            if (itemIds.length === 0) {
+                showToast('Не удалось найти ID предметов');
+                isParsing = false;
+                document.getElementById('loadingIndicator').style.display = 'none';
+                return;
+            }
+            
+            // Очищаем старые данные
+            auctionData = [];
+            updateTable();
+            updateStats();
+            
+            // Парсим каждый предмет
+            let successCount = 0;
+            for (let i = 0; i < itemIds.length; i++) {
+                if (!isParsing) break;
+                
+                const itemId = itemIds[i];
+                updateProgress(i, itemIds.length, `Парсинг предмета #${itemId}`);
+                
+                try {
+                    const itemData = await parseItemFromSirus(itemId);
+                    if (itemData && itemData.name) {
+                        auctionData.push(itemData);
+                        successCount++;
+                        showToast(`✓ ${itemData.name}: ${formatMoney(itemData.price)}`);
+                    } else {
+                        console.warn(`Не удалось распарсить предмет ${itemId}`);
+                    }
+                } catch (error) {
+                    console.error(`Ошибка парсинга предмета ${itemId}:`, error);
+                }
+                
+                // Задержка между запросами
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            isParsing = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            applyFilters();
+            updateStats();
+            showToast(`Успешно распарсено ${successCount} из ${itemIds.length} предметов`);
+        }
+
+        function stopParsing() {
+            isParsing = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+            showToast('Парсинг остановлен');
+        }
+
+        async function parseItemFromSirus(itemId) {
+            const proxy = document.getElementById('proxySelect').value;
+            const url = `${proxy}${encodeURIComponent(`https://sirus.su/base/item/${itemId}`)}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const html = await response.text();
+                return extractItemDataFromHtml(html, itemId);
+            } catch (error) {
+                console.error(`Ошибка загрузки ${url}:`, error);
+                
+                // Пробуем альтернативный прокси
+                const altProxy = 'https://api.allorigins.win/raw?url=';
+                try {
+                    const altUrl = `${altProxy}${encodeURIComponent(`https://sirus.su/base/item/${itemId}/x3`)}`;
+                    const altResponse = await fetch(altUrl);
+                    if (altResponse.ok) {
+                        const altHtml = await altResponse.text();
+                        return extractItemDataFromHtml(altHtml, itemId);
+                    }
+                } catch (altError) {
+                    console.error(`Ошибка загрузки альтернативного URL:`, altError);
+                }
+            }
+            
+            return null;
+        }
+
+        function extractItemDataFromHtml(html, itemId) {
+            const item = {
+                id: itemId,
+                name: '',
+                price: 0,
+                quantity: 0,
+                avgPrice: 0,
+                link: `https://sirus.su/base/item/${itemId}`
+            };
+            
+            // Извлекаем название предмета
+            const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
+            if (titleMatch) {
+                item.name = titleMatch[1].trim();
+            } else {
+                const pageTitle = html.match(/<title>([^<]+)<\/title>/);
+                if (pageTitle) {
+                    item.name = pageTitle[1].replace(/[-–].*$/, '').trim();
+                }
+            }
+            
+            // Извлекаем цену из структуры moneygold, moneysilver, moneycopper
+            const goldMatch = html.match(/<span class="moneygold">(\d+)<\/span>/);
+            const silverMatch = html.match(/<span class="moneysilver">(\d+)<\/span>/);
+            const copperMatch = html.match(/<span class="moneycopper">(\d+)<\/span>/);
+            
+            if (goldMatch || silverMatch || copperMatch) {
+                const gold = goldMatch ? parseInt(goldMatch[1]) : 0;
+                const silver = silverMatch ? parseInt(silverMatch[1]) : 0;
+                const copper = copperMatch ? parseInt(copperMatch[1]) : 0;
+                
+                item.price = (gold * 10000) + (silver * 100) + copper;
+            }
+            
+            // Извлекаем количество с аукциона
+            const quantityPatterns = [
+                /на аукционе[^<]*<[^>]*>(\d+)</i,
+                /кол-во[^<]*<[^>]*>(\d+)</i,
+                /количество[^<]*<[^>]*>(\d+)</i
+            ];
+            
+            for (const pattern of quantityPatterns) {
+                const match = html.match(pattern);
+                if (match) {
+                    item.quantity = parseInt(match[1]);
+                    break;
+                }
+            }
+            
+            return item;
+        }
+
+        function formatMoney(copper) {
+            const gold = Math.floor(copper / 10000);
+            const silver = Math.floor((copper % 10000) / 100);
+            const copperRemainder = copper % 100;
+            
+            let result = '';
+            if (gold > 0) result += `${gold}з `;
+            if (silver > 0) result += `${silver}с `;
+            if (copperRemainder > 0 || result === '') result += `${copperRemainder}м`;
+            
+            return result.trim();
+        }
+
+        function updateProgress(current, total, message) {
+            const progress = (current / total) * 100;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `${current}/${total} - ${message}`;
+        }
+
+        function loadSampleIds() {
+            document.getElementById('itemIdsInput').value = 
+                '22794, 21877, 22449, 22450, 22451, 22452, 21840, 21841, 21842, 21843';
+            showToast('Загружены примеры ID');
+        }
+
+        function parseFile(content, filename) {
+            const extension = filename.split('.').pop().toLowerCase();
+            
+            if (extension === 'lua') {
+                parseLuaFile(content);
+            } else if (extension === 'json') {
+                parseJSONFile(content);
+            } else if (extension === 'csv' || extension === 'txt') {
+                parseCSVFile(content);
+            }
+        }
+
+        function parseLuaFile(content) {
+            const items = [];
+            
+            content = content.replace(/--\[\[.*?\]\]/gs, '');
+            content = content.replace(/--.*$/gm, '');
+            
+            const patterns = [
+                /\["([^"]+)"\]\s*=\s*\{[^}]*?\["price"\]\s*=\s*(\d+)[^}]*?\["quantity"\]\s*=\s*(\d+)/g,
+                /\["([^"]+)"\]\s*=\s*(\d+)/g,
+                /\[(\d+)\]\s*=\s*\{[^}]*?\["name"\]\s*=\s*"([^"]+)"[^}]*?\["price"\]\s*=\s*(\d+)/g
+            ];
+            
+            for (const pattern of patterns) {
+                let match;
+                while ((match = pattern.exec(content)) !== null) {
+                    if (match.length >= 4) {
+                        items.push({
+                            name: match[1],
+                            price: parseInt(match[2]),
+                            quantity: parseInt(match[3]) || 1
+                        });
+                    } else if (match.length >= 3) {
+                        items.push({
+                            name: match[1],
+                            price: parseInt(match[2]),
+                            quantity: 1
+                        });
+                    }
+                }
+            }
+            
+            if (items.length > 0) {
+                auctionData = items.map(item => normalizeItem(item));
+                applyFilters();
+                updateStats();
+                showToast(`Загружено ${auctionData.length} предметов из Lua файла`);
+            }
+        }
+
+        function parseJSONFile(content) {
+            try {
+                const jsonData = JSON.parse(content);
+                if (Array.isArray(jsonData)) {
+                    auctionData = jsonData.map(item => normalizeItem(item));
+                } else if (jsonData.items) {
+                    auctionData = jsonData.items.map(item => normalizeItem(item));
+                }
+                applyFilters();
+                updateStats();
+                showToast(`Загружено ${auctionData.length} предметов из JSON`);
+            } catch (e) {
+                showToast('Ошибка парсинга JSON');
+            }
+        }
+
+        function parseCSVFile(content) {
+            const lines = content.split('\n');
+            auctionData = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const parts = line.split(/[,\t;]/);
+                if (parts.length < 2) continue;
+                
+                auctionData.push(normalizeItem({
+                    name: parts[0].replace(/"/g, ''),
+                    price: parseFloat(parts[1]) || 0,
+                    quantity: parts[2] ? parseInt(parts[2]) : 1
+                }));
+            }
+            
+            applyFilters();
+            updateStats();
+            showToast(`Загружено ${auctionData.length} предметов из CSV`);
+        }
+
+        function normalizeItem(item) {
+            return {
+                id: item.id || Math.random().toString(36).substr(2, 9),
+                name: item.name || 'Неизвестный предмет',
+                price: parseFloat(item.price || 0),
+                quantity: parseInt(item.quantity || 1),
+                avgPrice: parseFloat(item.avgPrice || 0),
+                link: item.link || ''
+            };
+        }
+
+        function loadSampleData() {
+            const sampleItems = [
+                { name: 'Лотос скверны', price: 8663250, quantity: 20, avgPrice: 10000000 },
+                { name: 'Ткань Пустоты', price: 8000000, quantity: 5, avgPrice: 12000000 },
+                { name: 'Осколок льда', price: 4500000, quantity: 50, avgPrice: 3800000 },
+                { name: 'Зелье лечения', price: 10000, quantity: 100, avgPrice: 8500 },
+                { name: 'Эликсир мудрости', price: 20000000, quantity: 3, avgPrice: 35000000 }
+            ];
+
+            auctionData = sampleItems.map(item => normalizeItem(item));
+            applyFilters();
+            updateStats();
+            showToast('Загружены примеры данных');
+        }
+
+        function clearData() {
+            auctionData = [];
+            filteredData = [];
+            updateTable();
+            updateStats();
+            showToast('Данные очищены');
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
+            const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+
+            filteredData = auctionData.filter(item => {
+                if (searchTerm && !item.name.toLowerCase().includes(searchTerm)) return false;
+                if (item.price < minPrice || item.price > maxPrice) return false;
+                return true;
+            });
+
+            sortData();
+            currentPage = 1;
+            updateTable();
+        }
+
+        function sortData() {
+            const { column, direction } = currentSort;
+            
+            filteredData.sort((a, b) => {
+                let result = 0;
+                
+                switch (column) {
+                    case 'name':
+                        result = a.name.localeCompare(b.name);
+                        break;
+                    case 'price':
+                        result = a.price - b.price;
+                        break;
+                    case 'quantity':
+                        result = a.quantity - b.quantity;
+                        break;
+                }
+                
+                return direction === 'asc' ? result : -result;
+            });
+        }
+
+        function sortTable(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+            
+            applyFilters();
+        }
+
+        function updateStats() {
+            document.getElementById('totalItems').textContent = auctionData.length;
+            
+            const profitableItems = auctionData.filter(item => item.avgPrice > 0 && item.avgPrice > item.price);
+            document.getElementById('profitableDeals').textContent = profitableItems.length;
+            
+            const prices = auctionData.map(item => item.price).filter(p => p > 0);
+            const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+            document.getElementById('avgPrice').textContent = formatMoney(avgPrice);
+            
+            const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+            const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+            document.getElementById('minPriceStat').textContent = formatMoney(minPrice);
+            document.getElementById('maxPriceStat').textContent = formatMoney(maxPrice);
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔍</div>
+                                <h3>Ничего не найдено</h3>
+                                <p>Попробуйте изменить фильтры</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            for (let i = startIndex; i < endIndex; i++) {
+                const item = filteredData[i];
+                const isProfitable = item.avgPrice > 0 && item.avgPrice > item.price;
+                const priceFormatted = formatMoney(item.price);
+                
+                html += `
+                    <tr onclick="showItemDetails('${item.id}')" style="cursor: pointer;">
+                        <td>${item.name}</td>
+                        <td>${priceFormatted}</td>
+                        <td>${item.quantity}</td>
+                        <td>
+                            <span class="badge ${isProfitable ? 'badge-profit' : 'badge-info'}">
+                                ${isProfitable ? 'Выгодно' : 'Обычная'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn" onclick="event.stopPropagation(); window.open('${item.link || '#'}', '_blank')">
+                                🔗 Открыть
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            tbody.innerHTML = html;
+            
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            document.getElementById('pageInfo').textContent = `Страница ${currentPage} из ${totalPages}`;
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            const newPage = currentPage + delta;
+            
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                updateTable();
+            }
+        }
+
+        function showItemDetails(id) {
+            const item = auctionData.find(i => i.id === id);
+            if (!item) return;
+            
+            const isProfitable = item.avgPrice > 0 && item.avgPrice > item.price;
+            
+            document.getElementById('modalTitle').textContent = item.name;
+            document.getElementById('modalContent').innerHTML = `
+                <div style="margin: 20px 0;">
+                    <p><strong>Цена:</strong> ${formatMoney(item.price)}</p>
+                    <p><strong>Количество:</strong> ${item.quantity}</p>
+                    <p><strong>Средняя цена:</strong> ${item.avgPrice ? formatMoney(item.avgPrice) : 'Нет данных'}</p>
+                    <p><strong>Статус:</strong> 
+                        <span class="badge ${isProfitable ? 'badge-profit' : 'badge-info'}">
+                            ${isProfitable ? 'Выгодно' : 'Обычная цена'}
+                        </span>
+                    </p>
+                    ${item.link ? `<p><a href="${item.link}" target="_blank" style="color: var(--accent-info);">Открыть на sirus.su</a></p>` : ''}
+                </div>
+            `;
+            
+            document.getElementById('itemModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('itemModal').style.display = 'none';
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function exportAnalysis() {
+            const analysis = {
+                timestamp: new Date().toISOString(),
+                source: 'sirus.su parser',
+                totalItems: auctionData.length,
+                items: auctionData.map(item => ({
+                    name: item.name,
+                    id: item.id,
+                    priceCopper: item.price,
+                    priceFormatted: formatMoney(item.price),
+                    quantity: item.quantity,
+                    avgPriceCopper: item.avgPrice,
+                    avgPriceFormatted: item.avgPrice ? formatMoney(item.avgPrice) : '',
+                    isProfitable: item.avgPrice > 0 && item.avgPrice > item.price,
+                    link: item.link
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(analysis, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sirus_auction_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Анализ экспортирован');
+        }
+
+        // Обработчики событий
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('minPrice').addEventListener('input', applyFilters);
+        document.getElementById('maxPrice').addEventListener('input', applyFilters);
+        document.getElementById('sortBy').addEventListener('change', function(e) {
+            currentSort.column = e.target.value;
+            applyFilters();
+        });
+
+        // Инициализация
+        loadSampleData();
+    </script>
+</body>
+</html>
